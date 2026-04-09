@@ -1,0 +1,308 @@
+{
+  "version": "0.1.0",
+  "name": "terminus",
+  "instructions": [
+    {
+      "name": "initializeVault",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "beneficiary",
+          "type": "publicKey"
+        },
+        {
+          "name": "fiduciary",
+          "type": "publicKey"
+        },
+        {
+          "name": "aiOracle",
+          "type": "publicKey"
+        },
+        {
+          "name": "medicalAllowance",
+          "type": "u64"
+        },
+        {
+          "name": "depositAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pingHeartbeat",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "triggerChallenge",
+      "accounts": [
+        {
+          "name": "aiOracle",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "claimant",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "claimType",
+          "type": "u8"
+        },
+        {
+          "name": "stakeAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "panicButton",
+      "accounts": [
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "executeClaim",
+      "accounts": [
+        {
+          "name": "claimer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "beneficiary",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fiduciary",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "VaultAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "beneficiary",
+            "type": "publicKey"
+          },
+          {
+            "name": "fiduciary",
+            "type": "publicKey"
+          },
+          {
+            "name": "aiOracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "VaultState"
+            }
+          },
+          {
+            "name": "lastHeartbeat",
+            "type": "i64"
+          },
+          {
+            "name": "challengeEndTime",
+            "type": "i64"
+          },
+          {
+            "name": "medicalAllowance",
+            "type": "u64"
+          },
+          {
+            "name": "claimStake",
+            "type": "u64"
+          },
+          {
+            "name": "pendingClaimType",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "VaultState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "ChallengePeriod"
+          },
+          {
+            "name": "Incapacitated"
+          },
+          {
+            "name": "Deceased"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "ChallengeTriggered",
+      "fields": [
+        {
+          "name": "vault",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "claimType",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "endTime",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "VaultExecuted",
+      "fields": [
+        {
+          "name": "vault",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "claimType",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "amountTransferred",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "VaultInitialized",
+      "fields": [
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "depositAmount",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "VaultNotActive",
+      "msg": "Vault is not Active."
+    },
+    {
+      "code": 6001,
+      "name": "UnauthorizedOracle",
+      "msg": "Only the AI Oracle can trigger this."
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedOwner",
+      "msg": "Only the Owner can press Panic."
+    },
+    {
+      "code": 6003,
+      "name": "NotInChallenge",
+      "msg": "Vault is not in Challenge Period."
+    },
+    {
+      "code": 6004,
+      "name": "ChallengePeriodActive",
+      "msg": "Challenge period has not expired."
+    }
+  ]
+}
