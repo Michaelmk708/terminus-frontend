@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useVaultSync } from "@/app/context";
 import { useDualSign } from "@/app/hooks/useDualSign";
 import { getUserFriendlyMessage } from "@/app/lib/errorHandling";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 interface ChallengeInitiatorProps {
   ownerPubkey: string;
@@ -34,6 +35,7 @@ export default function ChallengeInitiator({
 }: ChallengeInitiatorProps) {
   const { sign, isLoading, error, txSignature } = useDualSign();
   const { syncVault } = useVaultSync();
+  const { publicKey } = useWallet();
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [claimType, setClaimType] = useState<1 | 2>(2); // 1=Medical, 2=Death
 
@@ -48,6 +50,8 @@ export default function ChallengeInitiator({
       return;
     }
 
+    const claimant = publicKey?.toBase58() ?? ownerPubkey;
+
     try {
       // Step 1: Upload document to backend for OCR verification
       console.log("[CHALLENGE] Step 1: Uploading document for OCR...");
@@ -55,6 +59,8 @@ export default function ChallengeInitiator({
       const formData = new FormData();
       formData.append("file", documentFile);
       formData.append("username", ownerPubkey);
+      formData.append("vault_owner", ownerPubkey);
+      formData.append("claimant_pubkey", claimant);
 
       const verifyResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ocr/verify-claim`,
@@ -82,7 +88,8 @@ export default function ChallengeInitiator({
 
       const signature = await sign({
         aiOraclePubkey,
-        claimantPubkey: ownerPubkey,
+        vaultOwnerPubkey: ownerPubkey,
+        claimantPubkey: claimant,
         vaultPda,
         claimType,
         stakeAmount: 5000000, // 0.005 SOL

@@ -18,7 +18,6 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
-  Keypair,
   TransactionInstruction,
   AccountMeta,
 } from "@solana/web3.js";
@@ -89,9 +88,9 @@ export function buildTriggerChallengeInstruction(
   ];
 
   // Anchor instruction discriminator for trigger_challenge
-  // This is the first 8 bytes of SHA256("account:trigger_challenge")
+  // First 8 bytes of SHA256("global:trigger_challenge")
   const discriminator = Buffer.from([
-    0x5d, 0xb3, 0xc5, 0xb1, 0x00, 0x00, 0x00, 0x00,
+    0xec, 0x8e, 0xfb, 0x92, 0x70, 0xda, 0xf1, 0x66,
   ]);
 
   // Encode instruction data: discriminator + claim_type (u8) + stake_amount (u64 LE)
@@ -107,12 +106,31 @@ export function buildTriggerChallengeInstruction(
   });
 }
 
+export function buildPanicButtonInstruction(
+  ownerPubkey: PublicKey,
+  vaultPda: PublicKey
+): TransactionInstruction {
+  const accounts: AccountMeta[] = [
+    { pubkey: ownerPubkey, isSigner: true, isWritable: true },
+    { pubkey: vaultPda, isSigner: false, isWritable: true },
+  ];
+  const discriminator = Buffer.from([
+    0x8c, 0x8b, 0xac, 0xcf, 0x1b, 0xcc, 0x67, 0xa1,
+  ]);
+  return new TransactionInstruction({
+    programId: TERMINUS_PROGRAM_ID,
+    keys: accounts,
+    data: discriminator,
+  });
+}
+
 // ════════════════════════════════════════════════════════════════════
 //  TRANSACTION CONSTRUCTION & SIGNING
 // ════════════════════════════════════════════════════════════════════
 
 export interface TriggerChallengeParams {
   aiOraclePubkey: string;  // Base58
+  vaultOwnerPubkey: string; // Base58 (owner of the vault)
   claimantPubkey: string;  // Base58 (your wallet)
   vaultPda: string;        // Base58
   claimType?: number;
@@ -174,7 +192,10 @@ export async function signTriggerChallengeWithPhantom({
     console.log("[DUAL-SIGN] Step 3: Serializing transaction...");
 
     // Serialize to base64 for transmission to backend
-    const serialized = signedTx.serialize();
+    const serialized = signedTx.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
     const base64Encoded = Buffer.from(serialized).toString("base64");
 
     console.log(
@@ -253,6 +274,7 @@ export async function submitToBackendForCompletion({
  */
 export async function triggerChallengeWithDualSign({
   aiOraclePubkey,
+  vaultOwnerPubkey,
   claimantPubkey,
   vaultPda,
   claimType = 2,
@@ -267,6 +289,7 @@ export async function triggerChallengeWithDualSign({
   const [partiallySignedTx, signError] =
     await signTriggerChallengeWithPhantom({
       aiOraclePubkey,
+      vaultOwnerPubkey,
       claimantPubkey,
       vaultPda,
       claimType,
@@ -286,7 +309,44 @@ export async function triggerChallengeWithDualSign({
   // Step 2: Submit to backend for oracle signature + submission
   return submitToBackendForCompletion({
     base64SignedTx: partiallySignedTx,
-    vaultOwnerPubkey: claimantPubkey,  // Owner is also the claimant in this flow
+    vaultOwnerPubkey,
     backendUrl,
+  });
+}
+
+export interface ExecutePanicButtonParams {
+  ownerPubkey: string;
+  vaultPda: string;
+  connection: Connection;
+  signTransaction: (tx: Transaction) => Promise<Transaction>;
+}
+
+export async function executePanicButton({
+  ownerPubkey,
+  vaultPda,
+  connection,
+  signTransaction,
+}: ExecutePanicButtonParams): Promise<[string | null, Error | null]> {
+  return safeAsync(async () => {
+    const owner = new PublicKey(ownerPubkey);
+    const vault = new PublicKey(vaultPda);
+    const ix = buildPanicButtonInstruction(owner, vault);
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+    const tx = new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: owner,
+    }).add(ix);
+    const signed = await signTransaction(tx);
+    const sig = await connection.sendRawTransaction(signed.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      "confirmed"
+    );
+    return sig;
   });
 }

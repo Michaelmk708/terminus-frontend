@@ -22,6 +22,7 @@ import { classifyError, TerminusError } from "@/app/lib/errorHandling";
 
 export interface UseDualSignParams {
   aiOraclePubkey: string;
+  vaultOwnerPubkey: string;
   claimantPubkey: string;
   vaultPda: string;
   claimType?: number;

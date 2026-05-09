@@ -12,41 +12,7 @@
  *
  * Provider Stack (innermost to outermost):
  *   1. ConnectionProvider - Connects to Solana RPC endpoint
- *   2. WalletProvide"use client";
-
-import React, { useMemo } from "react";
-import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
-import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
-// Import styles for the wallet modal
-import "@solana/wallet-adapter-react-ui/styles.css";
-
-// Import the VaultContext the AI agent built
-import { VaultProvider } from "@/app/context/VaultContext";
-
-export default function AppWalletProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Use the env variable, fallback to devnet if undefined
-  const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
-
-  // Initialize the Phantom wallet adapter
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
-
-  return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <VaultProvider>
-            {children}
-          </VaultProvider>
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
-  );
-}r - Manages wallet adapters (Phantom, Solflare, etc)
+ *   2. WalletProvider - Manages wallet adapters (Phantom, Solflare, etc)
  *   3. WalletModalProvider - UI for wallet selection modal
  *   4. VaultProvider - Terminus-specific vault state and polling
  *

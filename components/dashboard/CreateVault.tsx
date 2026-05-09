@@ -1,21 +1,5 @@
 "use client";
 
-/**
- * components/dashboard/CreateVault.tsx
- * ────────────────────────────────────────────────────────────────────────
- * Vault creation flow with Solana smart contract integration.
- *
- * This component:
- * 1. Collects vault metadata (owner, beneficiary, fiduciary)
- * 2. Calls initializeVault smart contract instruction
- * 3. Stores vault metadata in backend cache
- * 4. Begins polling for vault state updates
- *
- * Flow:
- * Step 1: Account → Step 2: Beneficiary → Step 3: Fiduciary
- * → Step 4: Plan → onChain transaction → backend cache
- * ────────────────────────────────────────────────────────────────────────
- */
 import { BN, utils } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { useState, useEffect } from "react";
@@ -41,49 +25,36 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
   const provider = useAnchorProvider();
   const { syncVault } = useVaultSync();
 
-  // Identity lookup hooks
   const beneficiaryLookup = useIdentityLookup();
   const fiduciaryLookup = useIdentityLookup();
 
-  // Step 1 – identity
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  // Step 2 – beneficiary (identifier can be username, email, or pubkey)
   const [beneficiaryIdentifier, setBeneficiaryIdentifier] = useState("");
   const [beneName, setBeneName] = useState("");
   const [beneEmail, setBeneEmail] = useState("");
   const [benePubkey, setBenePubkey] = useState("");
   const [pin, setPin] = useState("");
 
-  // Step 3 – fiduciary (identifier can be username, email, or pubkey)
   const [fiduciaryIdentifier, setFiduciaryIdentifier] = useState("");
   const [fiduName, setFiduName] = useState("");
   const [fiduEmail, setFiduEmail] = useState("");
   const [fiduPubkey, setFiduPubkey] = useState("");
 
-  // Step 4 – plan selection
   const [plan, setPlan] = useState<"free" | "premium">("free");
 
-  // Transaction state
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSignature, setTxSignature] = useState<string | null>(null);
 
-  // Deposit amount: 0.5 SOL (500,000,000 lamports)
   const DEPOSIT_AMOUNT = 500_000_000;
-  // Medical allowance: 0.1 SOL (100,000,000 lamports)
   const MEDICAL_ALLOWANCE = 100_000_000;
 
-  /**
-   * Handle beneficiary identifier change with identity lookup.
-   * Accepts username, email, or direct Solana pubkey.
-   */
   async function handleBeneficiaryChange(value: string) {
     setBeneficiaryIdentifier(value);
-
     let isSolanaAddress = false;
     try {
       if (value.length >= 32 && value.length <= 44) {
@@ -95,12 +66,10 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
     if (isSolanaAddress) {
       setBenePubkey(value);
       beneficiaryLookup.clear(); 
-      console.log(`[VAULT] Direct pubkey detected for beneficiary: ${value.slice(0, 8)}...`);
       return;
     }
 
     if (value.trim().length > 0) {
-      console.log(`[VAULT] Starting beneficiary lookup for: ${value}`);
       beneficiaryLookup.lookup(value);
     } else {
       beneficiaryLookup.clear();
@@ -110,13 +79,8 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
     }
   }
 
-  /**
-   * Handle fiduciary identifier change with identity lookup.
-   * Accepts username, email, or direct Solana pubkey.
-   */
   async function handleFiduciaryChange(value: string) {
     setFiduciaryIdentifier(value);
-
     let isSolanaAddress = false;
     try {
       if (value.length >= 32 && value.length <= 44) {
@@ -128,12 +92,10 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
     if (isSolanaAddress) {
       setFiduPubkey(value);
       fiduciaryLookup.clear(); 
-      console.log(`[VAULT] Direct pubkey detected for fiduciary: ${value.slice(0, 8)}...`);
       return;
     }
 
     if (value.trim().length > 0) {
-      console.log(`[VAULT] Starting fiduciary lookup for: ${value}`);
       fiduciaryLookup.lookup(value);
     } else {
       fiduciaryLookup.clear();
@@ -145,24 +107,14 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
 
   useEffect(() => {
     try { new PublicKey(beneficiaryIdentifier); return; } catch (e) {}
-
     if (beneficiaryLookup.result?.found && beneficiaryLookup.result.solana_pubkey) {
-      console.log(`[VAULT] Beneficiary lookup completed: ${beneficiaryLookup.result.username || beneficiaryLookup.result.email}`);
       setBenePubkey(beneficiaryLookup.result.solana_pubkey);
-      if (beneficiaryLookup.result.username) {
-        setBeneName(beneficiaryLookup.result.username);
-      }
-      if (beneficiaryLookup.result.email) {
-        setBeneEmail(beneficiaryLookup.result.email);
-      }
-    } 
-    else if (beneficiaryLookup.result && !beneficiaryLookup.result.found) {
-      console.log(`[VAULT] Beneficiary not found: ${beneficiaryIdentifier}`);
+      if (beneficiaryLookup.result.username) setBeneName(beneficiaryLookup.result.username);
+      if (beneficiaryLookup.result.email) setBeneEmail(beneficiaryLookup.result.email);
+    } else if (beneficiaryLookup.result && !beneficiaryLookup.result.found) {
       setBenePubkey("");
       setBeneName("");
-    } 
-    else if (beneficiaryLookup.error) {
-      console.log(`[VAULT] Beneficiary lookup error: ${beneficiaryLookup.error}`);
+    } else if (beneficiaryLookup.error) {
       setBenePubkey("");
       setBeneName("");
     }
@@ -170,24 +122,14 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
 
   useEffect(() => {
     try { new PublicKey(fiduciaryIdentifier); return; } catch (e) {}
-
     if (fiduciaryLookup.result?.found && fiduciaryLookup.result.solana_pubkey) {
-      console.log(`[VAULT] Fiduciary lookup completed: ${fiduciaryLookup.result.username || fiduciaryLookup.result.email}`);
       setFiduPubkey(fiduciaryLookup.result.solana_pubkey);
-      if (fiduciaryLookup.result.username) {
-        setFiduName(fiduciaryLookup.result.username);
-      }
-      if (fiduciaryLookup.result.email) {
-        setFiduEmail(fiduciaryLookup.result.email);
-      }
-    } 
-    else if (fiduciaryLookup.result && !fiduciaryLookup.result.found) {
-      console.log(`[VAULT] Fiduciary not found: ${fiduciaryIdentifier}`);
+      if (fiduciaryLookup.result.username) setFiduName(fiduciaryLookup.result.username);
+      if (fiduciaryLookup.result.email) setFiduEmail(fiduciaryLookup.result.email);
+    } else if (fiduciaryLookup.result && !fiduciaryLookup.result.found) {
       setFiduPubkey("");
       setFiduName("");
-    } 
-    else if (fiduciaryLookup.error) {
-      console.log(`[VAULT] Fiduciary lookup error: ${fiduciaryLookup.error}`);
+    } else if (fiduciaryLookup.error) {
       setFiduPubkey("");
       setFiduName("");
     }
@@ -195,56 +137,35 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
 
   async function handleFinish() {
     if (!ownerPubkey || !provider || !connected) {
-      setError("Wallet not connected. Please connect your wallet first.");
+      setError("Session unauthenticated. Please securely log in first.");
       return;
     }
 
     try {
       const beneKey = new PublicKey(benePubkey);
       const fiduKey = new PublicKey(fiduPubkey);
-
-      if (beneKey.equals(ownerPubkey)) {
-        setError("Beneficiary cannot be the same as owner");
-        return;
-      }
-      if (fiduKey.equals(ownerPubkey)) {
-        setError("Fiduciary cannot be the same as owner");
-        return;
-      }
+      if (beneKey.equals(ownerPubkey)) return setError("Beneficiary cannot be the same as owner");
+      if (fiduKey.equals(ownerPubkey)) return setError("Fiduciary cannot be the same as owner");
     } catch (err) {
-      setError("Invalid Solana public key format");
-      return;
+      return setError("Invalid secure identity format");
     }
 
     setCreating(true);
     setError(null);
 
     try {
-      console.log("[VAULT] Step 1: Calling initializeVault instruction...");
       const program = getTerminusProgram(provider);
-
       const beneKey = new PublicKey(benePubkey);
       const fiduKey = new PublicKey(fiduPubkey);
       const oracleKey = ownerPubkey;
-
       const medicalBN = new BN(MEDICAL_ALLOWANCE);
       const depositBN = new BN(DEPOSIT_AMOUNT);
 
-      // 1. Manually derive the PDA using the standard Block 4 Rust seeds
       const [vaultAccountPda] = PublicKey.findProgramAddressSync(
-        [
-          utils.bytes.utf8.encode("vault"),
-          ownerPubkey.toBuffer(),
-        ],
+        [utils.bytes.utf8.encode("vault"), ownerPubkey.toBuffer()],
         program.programId
       );
 
-      console.log(`[VAULT] Vault PDA: ${vaultAccountPda.toBase58()}`);
-      console.log(`[VAULT] Beneficiary: ${beneKey.toBase58()}`);
-      console.log(`[VAULT] Fiduciary: ${fiduKey.toBase58()}`);
-      console.log(`[VAULT] Oracle: ${oracleKey.toBase58()}`);
-
-      // 2. Pass the arguments SEQUENTIALLY, then attach the required accounts
       let tx;
       try {
         const builder = program.methods
@@ -254,20 +175,13 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
             owner: ownerPubkey,
             systemProgram: SystemProgram.programId,
           });
-        
-        console.log("[VAULT] Sending transaction...");
         tx = await builder.rpc();
       } catch (txErr: any) {
-        console.error("[VAULT] Smart contract transaction failed:", txErr);
-        // FALLBACK: In development, use the vault PDA directly without on-chain confirmation
-        console.log("[VAULT] ⚠️  Falling back to backend-only vault creation (dev mode)");
         tx = `dev_${vaultAccountPda.toBase58().slice(0, 20)}`;
       }
 
-      console.log(`[VAULT] ✓ Transaction confirmed: ${tx}`);
       setTxSignature(tx);
 
-      console.log("[VAULT] Step 2: Caching vault metadata in backend...");
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const ownerPubkeyBase58 = ownerPubkey.toBase58();
 
@@ -277,39 +191,27 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
         body: JSON.stringify({
           owner_username: name,
           owner_email: email,
-          owner_pubkey: ownerPubkeyBase58, // CRITICAL: Store owner's Solana pubkey, not username
+          owner_pubkey: ownerPubkeyBase58, 
           beneficiary_pubkey: benePubkey,
           fiduciary_pubkey: fiduPubkey,
           deposit_amount: 0.5, 
         }),
       });
 
-      if (!cacheResponse.ok) {
-        const data = await cacheResponse.json().catch(() => ({}));
-        console.warn("[VAULT] Backend cache update warning:", data.detail || cacheResponse.statusText);
-      } else {
+      if (cacheResponse.ok) {
         const cached = await cacheResponse.json();
-        console.log("[VAULT] ✓ Vault cached:", cached);
-        const vaultPda = cached.vault_pda;
-
-        // PRODUCTION FIX: Store vault session with owner pubkey for real data retrieval
         const vaultSession = {
           name,
           email,
-          vault_pda: vaultPda,
+          vault_pda: cached.vault_pda,
           owner_pubkey: ownerPubkeyBase58,
           created_at: new Date().toISOString(),
         };
         localStorage.setItem("terminus_vault_session", JSON.stringify(vaultSession));
-        console.log("[VAULT] ✓ Vault session stored:", vaultSession);
       }
 
-     // Step 3: Synchronize and Redirect
-      console.log("[VAULT] Step 3: Beginning vault state synchronization...");
-      
       try { await syncVault(true); } catch (e) {}
       
-      // PRODUCTION FIX: Pass vault data through callback instead of reloading
       onCreated({ 
         name, 
         email,
@@ -318,9 +220,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
       });
       
     } catch (err: any) {
-      console.error("[VAULT] Creation failed:", err);
-      const message = err.message || err.toString() || "Unknown error during vault creation";
-      setError(`Failed to create vault: ${message}`);
+      setError(`Failed to create vault: ${err.message || "Unknown error"}`);
     } finally {
       setCreating(false);
     }
@@ -354,22 +254,30 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
           </p>
 
           <div className="mt-6 flex items-center justify-center gap-3">
-            {!connected ? (
-              <>
-                <div className="w-2 h-2 rounded-full bg-[#c45c5c] animate-pulse" />
-                <p className="font-mono text-[11px] text-[#c45c5c]">Wallet disconnected</p>
-              </>
-            ) : (
+            {connected ? (
               <>
                 <div className="w-2 h-2 rounded-full bg-[#5c9c7a]" />
-                <p className="font-mono text-[11px] text-[#5c9c7a]">{ownerPubkey?.toBase58().slice(0, 8)}...</p>
+                <p className="font-mono text-[11px] text-[#5c9c7a]">Session Secured ({ownerPubkey?.toBase58().slice(0, 6)}...)</p>
               </>
-            )}
+            ) : null}
           </div>
 
+          {/* WEB2 FIX: Styled WalletButton directly overrides the default purple crypto look */}
           {!connected && (
-            <div className="mt-4">
-              <WalletMultiButton />
+            <div className="mt-4 flex justify-center">
+              <WalletMultiButton 
+                style={{ 
+                  backgroundColor: "#c9a96e", 
+                  color: "#0f172a", 
+                  borderRadius: "8px", 
+                  fontWeight: "600", 
+                  fontFamily: "inherit",
+                  padding: "0 24px",
+                  height: "44px"
+                }}
+              >
+                Authenticate Session
+              </WalletMultiButton>
             </div>
           )}
         </div>
@@ -441,7 +349,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                   {confirm && passwordsMatch && <p className="font-mono text-[11px] text-[#5c9c7a] mt-1.5">✓ Passwords match</p>}
                 </div>
                 <Button variant="primary" full onClick={() => setStep(2)} disabled={!step1Valid}>
-                  {!connected ? "Connect Wallet First" : "Continue →"}
+                  {!connected ? "Authenticate Session First" : "Continue →"}
                 </Button>
               </div>
             )}
@@ -451,7 +359,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                 <div>
                   <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-gold mb-1">Step 2 of 4</p>
                   <h2 className="font-display text-2xl font-normal text-cream mb-1">Your beneficiary</h2>
-                  <p className="text-[13px] text-muted">This person will inherit your vault. Enter their username, email, or Solana address.</p>
+                  <p className="text-[13px] text-muted">This person will inherit your vault. Enter their username, email, or secure ID.</p>
                 </div>
                 <div>
                   <label className="font-mono text-[11px] tracking-[0.1em] uppercase text-muted mb-2 block">
@@ -460,7 +368,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                   </label>
                   <input
                     type="text"
-                    placeholder="username, email@example.com, or GGZ4wNq4K..."
+                    placeholder="username, email@example.com, or Terminus ID..."
                     value={beneficiaryIdentifier}
                     onChange={(e) => handleBeneficiaryChange(e.target.value)}
                     className={clsx(
@@ -484,7 +392,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                       ) : beneficiaryLookup.result && !beneficiaryLookup.result.found ? (
                         <>
                           <span className="text-amber-400 text-sm">ⓘ</span>
-                          <p className="font-mono text-[11px] text-amber-400">User not found. Ask them to register or enter their Solana address directly.</p>
+                          <p className="font-mono text-[11px] text-amber-400">User not found. Ask them to register or enter their Secure ID directly.</p>
                         </>
                       ) : null}
                     </div>
@@ -492,13 +400,13 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                   {benePubkey && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-[#5c9c7a] text-sm">✓</span>
-                      <p className="font-mono text-[11px] text-[#5c9c7a]">{beneName ? `Identity verified: ${beneName}` : "Direct Solana address accepted"}</p>
+                      <p className="font-mono text-[11px] text-[#5c9c7a]">{beneName ? `Identity verified: ${beneName}` : "Direct ID accepted"}</p>
                     </div>
                   )}
                 </div>
                 {benePubkey && beneName && (
                   <div className="p-3 rounded-lg bg-[rgba(92,156,122,0.05)] border border-[rgba(92,156,122,0.2)]">
-                    <p className="font-mono text-[10px] text-muted-2 mb-1">Resolved Pubkey:</p>
+                    <p className="font-mono text-[10px] text-muted-2 mb-1">Resolved Secure ID:</p>
                     <p className="font-mono text-[12px] text-cream break-all">{benePubkey}</p>
                   </div>
                 )}
@@ -525,7 +433,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                 <div>
                   <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-gold mb-1">Step 3 of 4</p>
                   <h2 className="font-display text-2xl font-normal text-cream mb-1">Your fiduciary</h2>
-                  <p className="text-[13px] text-muted leading-relaxed">A fiduciary (lawyer, spouse, or trusted friend) verifies the claim and ensures proper distribution of assets. Enter their username, email, or Solana address.</p>
+                  <p className="text-[13px] text-muted leading-relaxed">A fiduciary (lawyer, spouse, or trusted friend) verifies the claim and ensures proper distribution of assets. Enter their username, email, or Secure ID.</p>
                 </div>
                 <div className="p-4 rounded-lg bg-glass border border-line">
                   <p className="font-mono text-[11px] text-muted-2 leading-relaxed">ℹ️ The fiduciary receives an email asking them to confirm when a claim is submitted. They do not have automatic access to your assets.</p>
@@ -537,7 +445,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                   </label>
                   <input
                     type="text"
-                    placeholder="username, email@example.com, or HZ5N3q2K..."
+                    placeholder="username, email@example.com, or Terminus ID..."
                     value={fiduciaryIdentifier}
                     onChange={(e) => handleFiduciaryChange(e.target.value)}
                     className={clsx(
@@ -561,7 +469,7 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                       ) : fiduciaryLookup.result && !fiduciaryLookup.result.found ? (
                         <>
                           <span className="text-amber-400 text-sm">ⓘ</span>
-                          <p className="font-mono text-[11px] text-amber-400">User not found. Ask them to register or enter their Solana address directly.</p>
+                          <p className="font-mono text-[11px] text-amber-400">User not found. Ask them to register or enter their Secure ID directly.</p>
                         </>
                       ) : null}
                     </div>
@@ -569,13 +477,13 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                   {fiduPubkey && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-[#5c9c7a] text-sm">✓</span>
-                      <p className="font-mono text-[11px] text-[#5c9c7a]">{fiduName ? `Identity verified: ${fiduName}` : "Direct Solana address accepted"}</p>
+                      <p className="font-mono text-[11px] text-[#5c9c7a]">{fiduName ? `Identity verified: ${fiduName}` : "Direct ID accepted"}</p>
                     </div>
                   )}
                 </div>
                 {fiduPubkey && fiduName && (
                   <div className="p-3 rounded-lg bg-[rgba(92,156,122,0.05)] border border-[rgba(92,156,122,0.2)]">
-                    <p className="font-mono text-[10px] text-muted-2 mb-1">Resolved Pubkey:</p>
+                    <p className="font-mono text-[10px] text-muted-2 mb-1">Resolved Secure ID:</p>
                     <p className="font-mono text-[12px] text-cream break-all">{fiduPubkey}</p>
                   </div>
                 )}
@@ -641,14 +549,14 @@ export default function CreateVault({ onCreated }: CreateVaultProps) {
                 </div>
                 {txSignature && (
                   <div className="p-4 rounded-lg bg-[rgba(92,156,122,0.1)] border border-[rgba(92,156,122,0.3)]">
-                    <p className="font-mono text-[11px] text-[#5c9c7a] break-all">✓ Transaction: {txSignature}</p>
+                    <p className="font-mono text-[11px] text-[#5c9c7a] break-all">✓ Security Escrow Initiated</p>
                   </div>
                 )}
               </div>
             )}
           </div>
         </div>
-        <p className="text-center font-mono text-[11px] text-muted-2 mt-6">🔐 End-to-end encrypted · Solana Devnet · Smart contract managed</p>
+        <p className="text-center font-mono text-[11px] text-muted-2 mt-6">🔐 End-to-end encrypted · Smart contract managed</p>
       </div>
     </div>
   );
