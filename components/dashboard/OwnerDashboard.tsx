@@ -156,7 +156,7 @@ export default function OwnerDashboard({ user }: Props) {
                 Vault: <em className="italic text-gold-light">{firstName}</em>
               </h1>
               <div className="flex items-center gap-4 mt-2">
-                <Badge variant={"outline" as any} className="border border-gold text-gold bg-gold/10">Active</Badge>
+                <span className="inline-flex items-center border border-gold text-gold bg-gold/10 px-2.5 py-0.5 rounded-full text-xs font-semibold">Active</span>
                 <p className="font-mono text-[12px] text-muted tracking-widest uppercase">
                   Balance: <span className="text-cream font-medium">{vaultBalance.toFixed(4)} SOL</span>
                 </p>
@@ -343,7 +343,9 @@ export default function OwnerDashboard({ user }: Props) {
             <h3 className="text-xl text-cream mb-2 font-display">Step-Up Authentication</h3>
             <p className="text-sm text-muted mb-6">Verify your identity to authorize the Panic Button.</p>
             <FormInput label="Verified Phone" placeholder="+254..." value={otpPhone} onChange={setOtpPhone} />
-            <FormInput label="OTP Code" placeholder="123456" value={otpCode} onChange={setOtpCode} className="mt-4" />
+            <div className="mt-4">
+              <FormInput label="OTP Code" placeholder="123456" value={otpCode} onChange={setOtpCode} />
+            </div>
             {otpError && <p className="text-xs text-red-400 mt-2">{otpError}</p>}
             <div className="flex gap-3 mt-8">
               <Button variant="ghost" onClick={() => setShowOtpModal(false)} className="flex-1">Cancel</Button>
