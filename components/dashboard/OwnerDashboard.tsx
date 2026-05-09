@@ -156,7 +156,7 @@ export default function OwnerDashboard({ user }: Props) {
                 Vault: <em className="italic text-gold-light">{firstName}</em>
               </h1>
               <div className="flex items-center gap-4 mt-2">
-                <Badge variant="outline" className="border-gold text-gold bg-gold/10">Active</Badge>
+                <Badge variant={"outline" as any} className="border border-gold text-gold bg-gold/10">Active</Badge>
                 <p className="font-mono text-[12px] text-muted tracking-widest uppercase">
                   Balance: <span className="text-cream font-medium">{vaultBalance.toFixed(4)} SOL</span>
                 </p>
